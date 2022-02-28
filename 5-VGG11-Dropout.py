@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 import torchvision.transforms as transforms
 
 # 超参数
-MODELNAME='VGG11-MA-test'
+MODELNAME='VGG11'
 MODELFILEDIR = 'PretrainedModels' # 模型参数存储路径
 BatchSize = 128
 LEARNINGRATE = 0.01
@@ -71,14 +71,19 @@ class VGG11(nn.Module):
         self.layer6 = nn.Sequential(
             nn.Linear(512, 512),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(0.5), # this may work in solving over-fit but no improvement in my test
             nn.Linear(512,100),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(0.5), # this may work in solving over-fit but no improvement in my test
             nn.Linear(100,10),
             # nn.ReLU(),
             # nn.Softmax(1)
         )
+    '''
+        You can try to put some dropout layer between the Conv layer. This really works when you desire to imporve the performance in the test set.
+        
+        But it may makes the model hard to fitting, you can use the model without dropout first, and put in some dropout layer after it start to fit.(When have an ACC of 30%) 
+    '''
     def forward(self,x:torch.Tensor):
         x = self.layer1(x) # 执行卷积神经网络部分
         x = self.layer2(x) # 执行全连接部分

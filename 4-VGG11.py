@@ -7,14 +7,13 @@ import numpy as np
 from imports.ParametersManager import *
 from imports.utlis import *
 from matplotlib import pyplot as plt
-from torchvision.datasets import CIFAR10
 import torchvision.transforms as transforms
 
 # 超参数
 MODELNAME='VGG11'
 MODELFILEDIR = 'PretrainedModels' # 模型参数存储路径
 BatchSize = 128
-LEARNINGRATE = 0.1
+LEARNINGRATE = 0.01
 epochNums = 10
 SaveModelEveryNEpoch = 2 # 每执行多少次保存一个模型
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -24,11 +23,13 @@ if not os.path.exists(MODELFILEDIR):
     os.mkdir(MODELFILEDIR)
 MODELFILEPATH = os.path.join(MODELFILEDIR, MODELNAME+'_model.pt')
 
+
 # 可以将数据线包装为Dataset，然后传入DataLoader中取样
 class MyDataset(Dataset):
     def __init__(self,SetType) -> None:
         with open(SetType + 'Images.npy','rb') as f:
             self.images =torch.tensor(np.load(f), dtype=torch.float32)
+            self.images = (self.images - 0.5) / 0.5 # 将数据范围映射到[-1,1]很重要，可以提高准确率
         with open(SetType + 'Labels.npy','rb') as f:
             tmp = np.load(f)
             print(tmp)
@@ -67,8 +68,6 @@ class VGG11(nn.Module):
         
         self.layer5 = blockVGG(2,512,512,3,False)
         self.layer6 = nn.Sequential(
-            # nn.Linear(512, 512),
-            # nn.ReLU(),
             nn.Linear(512,100),
             nn.ReLU(),
             nn.Linear(100,10),
@@ -87,10 +86,8 @@ class VGG11(nn.Module):
 
 # 定义准确率函数
 def accuracy(output , label):
-    total = output.shape[0]
-    _, pred_label = output.max(1)
-    num_correct = (pred_label == label).sum().item()
-    return num_correct / total
+    rightNum = torch.sum(torch.max(label,1)[1].eq(torch.max(output,1)[1]))
+    return rightNum / len(label)
         
 if __name__ == "__main__":    
     # 模型实例化        
@@ -106,18 +103,13 @@ if __name__ == "__main__":
 
     model.cuda()
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=LEARNINGRATE, momentum=0.9)
+    optimizer = torch.optim.SGD(model.parameters(), lr=LEARNINGRATE)
     
     dirOfDataset = 'Cifar-10_Unpacked/'
-     
-    transform = transforms.Compose([transforms.ToTensor(),
-         transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
-         ])
     # 构建训练集
-    
-    TrainDataset = CIFAR10('./data', train=True, transform=transform, download=True)
+    TrainDataset = MyDataset(dirOfDataset + 'Train')
     # 构建测试集
-    TestDataset = CIFAR10('./data', train=False, transform=transform, download=True)
+    TestDataset = MyDataset(dirOfDataset + 'Test')
     # 构建训练集读取器
     TrainLoader = DataLoader(TrainDataset,num_workers=8, pin_memory=True, batch_size=BatchSize, sampler= torch.utils.data.sampler.SubsetRandomSampler(range(len(TrainDataset))))
     # 构建测试集读取器：
@@ -162,7 +154,7 @@ if __name__ == "__main__":
             loss = criterion(output,label.cuda())
             loss.backward()
             optimizer.step()
-            epochAccuracy.append(accuracy(output,label.cuda()))
+            epochAccuracy.append(accuracy(output,label.cuda()).cpu())
             epochLoss.append(loss.item()) # 需要获取数值来转换
             if batch_id % (int(len(TrainLoader) / 20)) == 0: 
                 print("    当前运行到[{}/{}], 目前Epoch准确率为：{:.2f}%，Loss：{:.6f}".format(batch_id,len(TrainLoader), np.mean(epochAccuracy) * 100, loss))
@@ -176,7 +168,7 @@ if __name__ == "__main__":
         for inputs, label in TestLoader:
             torch.no_grad() # 上下文管理器，此部分内不会追踪梯度/
             output = model(inputs.cuda())
-            localTestACC.append(accuracy(output,label.cuda()))
+            localTestACC.append(accuracy(output,label.cuda()).cpu())
         # ==========验证集测试结束================
         # 收集验证集准确率
         TestACC.append(np.mean(localTestACC))
@@ -192,6 +184,8 @@ if __name__ == "__main__":
     parManager.show()
     # 绘图
     plt.figure(figsize=(10,7))
+    plt.subplots_adjust(left=0.1,bottom=0.1,top=0.9,right=0.9,wspace=0.1,hspace=0.3)
+    plt.subplot(2,1,1)
     plt.plot(range(parManager.EpochDone),parManager.TrainACC,marker='*' ,color='r',label='Train')
     plt.plot(range(parManager.EpochDone),parManager.TestACC,marker='*' ,color='b',label='Test')
 
@@ -199,6 +193,12 @@ if __name__ == "__main__":
     plt.ylabel('ACC')
     plt.legend()
     plt.title("{} on Cifar-10".format(MODELNAME))
-
-    plt.savefig('Train.jpg')
+    plt.text(int(parManager.EpochDone *0.8),0.5,'Train ACC: {:.6f}\nTest ACC: {:.6f}\nEpoch:{}'.format(parManager.TrainACC[-1],parManager.TestACC[-1], parManager.EpochDone))
+    plt.subplot(2,1,2)
+    plt.title('Learning Rates')
+    plt.xlabel('Epoch')
+    plt.ylabel('$log_{10}$(Learning Rates)')
+    plt.ylim(0,-5)
+    plt.plot([x for x in range(parManager.EpochDone)], np.log(parManager.LearningRate) / np.log(10))
+    plt.savefig('Train-{}-{}Epoch.jpg'.format(MODELNAME,parManager.EpochDone))
     plt.show()
