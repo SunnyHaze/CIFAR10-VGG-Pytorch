@@ -1,0 +1,8 @@
+__pycache__
+Cifar-10_Unpacked
+cifar-10-batches-py
+RawVGG_GPU.py
+web_VGG.py
+!PretrainedModels/
+*.pt
+*.jpg
