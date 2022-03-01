@@ -4,6 +4,7 @@ cifar-10-batches-py
 RawVGG_GPU.py
 web_VGG.py
 !PretrainedModels/
+!/images/
 *.pt
-*.jpg
+/*.jpg
 4-VGG11-temp.py

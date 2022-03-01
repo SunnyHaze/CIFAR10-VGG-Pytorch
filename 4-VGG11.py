@@ -14,7 +14,7 @@ MODELNAME='VGG11'
 MODELFILEDIR = 'PretrainedModels' # 模型参数存储路径
 BatchSize = 128
 LEARNINGRATE = 0.01
-epochNums = 10
+epochNums = 0
 SaveModelEveryNEpoch = 2 # 每执行多少次保存一个模型
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -29,7 +29,7 @@ class MyDataset(Dataset):
     def __init__(self,SetType) -> None:
         with open(SetType + 'Images.npy','rb') as f:
             self.images =torch.tensor(np.load(f), dtype=torch.float32)
-            self.images = (self.images - 0.5) / 0.5 # 将数据范围映射到[-1,1]很重要，可以提高准确率
+            self.images = (self.images - 0.5) / 0.5 # 将数据范围映射到[-1,1]很重要，可以提高训练速度
         with open(SetType + 'Labels.npy','rb') as f:
             tmp = np.load(f)
             print(tmp)
@@ -95,8 +95,8 @@ if __name__ == "__main__":
     print(model)
     # # 如果有“半成品”则导入参数
     parManager = ParametersManager(device)
-    if os.path.exists(MODELFILEDIR):
-        parManager.loadFromFile(MODELFILEDIR)
+    if os.path.exists(MODELFILEPATH):
+        parManager.loadFromFile(MODELFILEPATH)
         parManager.setModelParameters(model)
     else:
         print('===No pre-trained model found!===')
@@ -178,7 +178,7 @@ if __name__ == "__main__":
         # 周期性保存结果到文件
         if epoch == epochNums - 1 or epoch % SaveModelEveryNEpoch == 0:
             parManager.loadModelParameters(model)
-            parManager.saveToFile(MODELFILEDIR)
+            parManager.saveToFile(MODELFILEPATH)
             
     # 查看此次训练之后结果
     parManager.show()

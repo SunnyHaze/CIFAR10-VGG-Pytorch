@@ -10,11 +10,11 @@ from matplotlib import pyplot as plt
 import torchvision.transforms as transforms
 
 # 超参数
-MODELNAME='VGG11'
+MODELNAME='VGG11-Dropout'
 MODELFILEDIR = 'PretrainedModels' # 模型参数存储路径
 BatchSize = 128
-LEARNINGRATE = 0.01
-epochNums = 10
+LEARNINGRATE = 0.001
+epochNums = 5
 SaveModelEveryNEpoch = 2 # 每执行多少次保存一个模型
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -47,9 +47,11 @@ def blockVGG(covLayerNum,inputChannel, outputChannel, kernelSize, withFinalCov1:
     layer = nn.Sequential()
     layer.add_module('conv2D1',nn.Conv2d(inputChannel, outputChannel,kernelSize,padding=1))
     layer.add_module('relu-1',nn.ReLU())
+    layer.add_module('Dropout0',nn.Dropout(0.5))
     for i in range(covLayerNum - 1):
         layer.add_module('conv2D{}'.format(i),nn.Conv2d(outputChannel, outputChannel,kernelSize,padding=1))
         layer.add_module('relu{}'.format(i),nn.ReLU())
+        layer.add_module('Dropout{}'.format(i + 1),nn.Dropout(0.5)) # Dropout to solve over-fit problem
     if withFinalCov1:
         layer.add_module('Conv2dOne',nn.Conv2d(outputChannel,outputChannel, 1))
     layer.add_module('max-pool',nn.MaxPool2d(2,2))
@@ -69,12 +71,12 @@ class VGG11(nn.Module):
         
         self.layer5 = blockVGG(2,512,512,3,False)
         self.layer6 = nn.Sequential(
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Dropout(0.5), # this may work in solving over-fit but no improvement in my test
+            # nn.Linear(512, 512),
+            # nn.ReLU(),
+            # nn.Dropout(0.5), # this may work in solving over-fit but no improvement in my test
             nn.Linear(512,100),
             nn.ReLU(),
-            nn.Dropout(0.5), # this may work in solving over-fit but no improvement in my test
+            # nn.Dropout(0.5), # this may work in solving over-fit but no improvement in my test
             nn.Linear(100,10),
             # nn.ReLU(),
             # nn.Softmax(1)
@@ -105,8 +107,8 @@ if __name__ == "__main__":
     print(model)
     # # 如果有“半成品”则导入参数
     parManager = ParametersManager(device)
-    if os.path.exists(MODELFILEDIR):
-        parManager.loadFromFile(MODELFILEDIR)
+    if os.path.exists(MODELFILEPATH):
+        parManager.loadFromFile(MODELFILEPATH)
         parManager.setModelParameters(model)
     else:
         print('===No pre-trained model found!===')
@@ -188,7 +190,7 @@ if __name__ == "__main__":
         # 周期性保存结果到文件
         if epoch == epochNums - 1 or epoch % SaveModelEveryNEpoch == 0:
             parManager.loadModelParameters(model)
-            parManager.saveToFile(MODELFILEDIR)
+            parManager.saveToFile(MODELFILEPATH)
             
     # 查看此次训练之后结果
     parManager.show()

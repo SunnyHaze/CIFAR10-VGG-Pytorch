@@ -108,8 +108,8 @@ if __name__ == "__main__":
     print(model)
     # # 如果有“半成品”则导入参数
     parManager = ParametersManager(device)
-    if os.path.exists(MODELFILEDIR):
-        parManager.loadFromFile(MODELFILEDIR)
+    if os.path.exists(MODELFILEPATH):
+        parManager.loadFromFile(MODELFILEPATH)
         parManager.setModelParameters(model)
     else:
         print('===No pre-trained model found!===')
@@ -191,7 +191,7 @@ if __name__ == "__main__":
         # 周期性保存结果到文件
         if epoch == epochNums - 1 or epoch % SaveModelEveryNEpoch == 0:
             parManager.loadModelParameters(model)
-            parManager.saveToFile(MODELFILEDIR)
+            parManager.saveToFile(MODELFILEPATH)
             
     # 查看此次训练之后结果
     parManager.show()
